@@ -1,15 +1,14 @@
 import Application from '../models/Application.js';
 import Job from '../models/Job.js';
 import User from '../models/User.js';
-import Company from '../models/Company.js';
 import ApiError from '../utils/ApiError.js';
 
 /**
- * @description Job Application Workflow & Analytics Service Layer
+ * @description Job Application Workflow & Lifecycle Business Logic Service Layer
  */
 class ApplicationService {
     /**
-     * 📝 Candidate Job Application
+     * 📝 Candidate Apply Job
      */
     static async applyJob(jobId, userId) {
         const job = await Job.findById(jobId);
@@ -21,7 +20,6 @@ class ApplicationService {
             throw new ApiError(400, 'This job posting is no longer active!');
         }
 
-        // Check if candidate has uploaded a resume
         const user = await User.findById(userId);
         if (!user.profile?.resume) {
             throw new ApiError(
@@ -30,7 +28,6 @@ class ApplicationService {
             );
         }
 
-        // Check if user already applied to this job
         const existingApplication = await Application.findOne({
             job: jobId,
             applicant: userId,
@@ -40,7 +37,6 @@ class ApplicationService {
             throw new ApiError(400, 'You have already applied for this job posting!');
         }
 
-        // Create Application
         const application = await Application.create({
             job: jobId,
             applicant: userId,
@@ -50,7 +46,7 @@ class ApplicationService {
     }
 
     /**
-     * 📋 Get all jobs applied by logged-in JobSeeker
+     * 📋 Get all jobs applied by logged-in Candidate
      */
     static async getAppliedJobs(userId) {
         const applications = await Application.find({ applicant: userId })
@@ -59,7 +55,7 @@ class ApplicationService {
                 path: 'job',
                 populate: {
                     path: 'company',
-                    select: 'name logo location',
+                    select: 'name logo location website',
                 },
             });
 
@@ -75,7 +71,6 @@ class ApplicationService {
             throw new ApiError(404, 'Job not found');
         }
 
-        // Authorization: Verify recruiter owns this job
         if (job.created_by.toString() !== recruiterUserId.toString()) {
             throw new ApiError(403, 'Unauthorized! You can only view applicants for your own jobs.');
         }
@@ -91,7 +86,33 @@ class ApplicationService {
     }
 
     /**
-     * ⚡ Update Application Status (Pending, Accepted, Rejected, Interviewing)
+     * 🔍 Get Single Application Details by ID
+     */
+    static async getApplicationById(applicationId, currentUser) {
+        const application = await Application.findById(applicationId)
+            .populate({
+                path: 'job',
+                populate: { path: 'company', select: 'name logo' },
+            })
+            .populate({ path: 'applicant', select: 'name email phoneNumber profile' });
+
+        if (!application) {
+            throw new ApiError(404, 'Application not found');
+        }
+
+        const isApplicant = application.applicant._id.toString() === currentUser._id.toString();
+        const isRecruiterOwner = application.job.created_by.toString() === currentUser._id.toString();
+        const isAdmin = currentUser.role === 'admin';
+
+        if (!isApplicant && !isRecruiterOwner && !isAdmin) {
+            throw new ApiError(403, 'Unauthorized to view this application details');
+        }
+
+        return application;
+    }
+
+    /**
+     * ⚡ Update Application Status (Recruiter Only)
      */
     static async updateApplicationStatus(applicationId, status, recruiterUserId) {
         const application = await Application.findById(applicationId).populate('job');
@@ -99,7 +120,6 @@ class ApplicationService {
             throw new ApiError(404, 'Application not found');
         }
 
-        // Authorization check
         if (application.job.created_by.toString() !== recruiterUserId.toString()) {
             throw new ApiError(403, 'Unauthorized! You can only update applications for your own jobs.');
         }
@@ -111,59 +131,33 @@ class ApplicationService {
     }
 
     /**
-     * 📊 Recruiter Analytics Dashboard Metrics
+     * 🛑 Withdraw / Cancel Job Application (Candidate Only)
      */
-    static async getRecruiterDashboard(recruiterUserId) {
-        const totalJobs = await Job.countDocuments({ created_by: recruiterUserId });
-        const recruiterJobs = await Job.find({ created_by: recruiterUserId }).select('_id');
-        const jobIds = recruiterJobs.map((j) => j._id);
+    static async withdrawApplication(applicationId, userId) {
+        const application = await Application.findById(applicationId);
+        if (!application) {
+            throw new ApiError(404, 'Application not found');
+        }
 
-        const totalApplications = await Application.countDocuments({ job: { $in: jobIds } });
-        const pendingApplications = await Application.countDocuments({
-            job: { $in: jobIds },
-            status: 'pending',
-        });
-        const acceptedApplications = await Application.countDocuments({
-            job: { $in: jobIds },
-            status: 'accepted',
-        });
-        const rejectedApplications = await Application.countDocuments({
-            job: { $in: jobIds },
-            status: 'rejected',
-        });
+        if (application.applicant.toString() !== userId.toString()) {
+            throw new ApiError(403, 'Unauthorized! You can only withdraw your own application.');
+        }
 
-        return {
-            totalJobs,
-            totalApplications,
-            statusBreakdown: {
-                pending: pendingApplications,
-                accepted: acceptedApplications,
-                rejected: rejectedApplications,
-            },
-        };
+        await Application.findByIdAndDelete(applicationId);
+        return true;
     }
 
     /**
-     * 👑 Admin Master Dashboard Metrics
+     * 🗑️ Delete Application Record (Admin Only)
      */
-    static async getAdminDashboard() {
-        const totalUsers = await User.countDocuments();
-        const jobseekersCount = await User.countDocuments({ role: 'jobseeker' });
-        const recruitersCount = await User.countDocuments({ role: 'recruiter' });
-        const totalCompanies = await Company.countDocuments();
-        const totalJobs = await Job.countDocuments();
-        const totalApplications = await Application.countDocuments();
+    static async deleteApplication(applicationId) {
+        const application = await Application.findById(applicationId);
+        if (!application) {
+            throw new ApiError(404, 'Application not found');
+        }
 
-        return {
-            users: {
-                total: totalUsers,
-                jobseekers: jobseekersCount,
-                recruiters: recruitersCount,
-            },
-            totalCompanies,
-            totalJobs,
-            totalApplications,
-        };
+        await Application.findByIdAndDelete(applicationId);
+        return true;
     }
 }
 
