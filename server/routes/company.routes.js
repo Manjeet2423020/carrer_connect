@@ -1,6 +1,7 @@
 import express from 'express';
 import {
     createCompany,
+    getAllCompanies,
     getRecruiterCompanies,
     getCompanyById,
     updateCompany,
@@ -9,38 +10,42 @@ import {
 import { verifyJWT } from '../middleware/verifyJWT.js';
 import { isRecruiter } from '../middleware/isRecruiter.js';
 import { validate } from '../validations/auth.validation.js';
-import { createCompanyValidation, updateCompanyValidation } from '../validations/company.validation.js';
+import {
+    createCompanyValidation,
+    updateCompanyValidation,
+    companyIdValidation,
+    getAllCompaniesQueryValidation,
+} from '../validations/company.validation.js';
 import upload from '../config/multer.js';
 
 const router = express.Router();
 
-// 🏢 Register Company (Recruiter Only + Logo Upload + Validation)
+// 🔍 Public Routes (Open to all candidates & guests)
+router.get('/', validate(getAllCompaniesQueryValidation), getAllCompanies);
+router.get('/:id', validate(companyIdValidation), getCompanyById);
+
+// 🔒 Protected Routes (Require JWT Auth)
+router.use(verifyJWT);
+
+// 🏢 Recruiter Only Routes
 router.post(
     '/',
-    verifyJWT,
     isRecruiter,
     upload.single('logo'),
     validate(createCompanyValidation),
     createCompany
 );
 
-// 🏢 Get all companies registered by logged-in recruiter
-router.get('/recruiter', verifyJWT, isRecruiter, getRecruiterCompanies);
+router.get('/recruiter/all', isRecruiter, getRecruiterCompanies);
 
-// 🔍 Get Company Details by ID
-router.get('/:id', getCompanyById);
-
-// ✏️ Update Company (Recruiter Only)
 router.put(
     '/:id',
-    verifyJWT,
     isRecruiter,
     upload.single('logo'),
     validate(updateCompanyValidation),
     updateCompany
 );
 
-// 🗑️ Delete Company (Recruiter Only)
-router.delete('/:id', verifyJWT, isRecruiter, deleteCompany);
+router.delete('/:id', validate(companyIdValidation), deleteCompany);
 
 export default router;

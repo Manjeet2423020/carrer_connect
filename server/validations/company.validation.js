@@ -1,4 +1,4 @@
-import { body } from 'express-validator';
+import { body, param, query } from 'express-validator';
 
 /**
  * 🏢 Company Creation Validation Rules
@@ -30,6 +30,7 @@ export const createCompanyValidation = [
  * 🏢 Company Update Validation Rules
  */
 export const updateCompanyValidation = [
+    param('id').isMongoId().withMessage('Invalid Company ID format'),
     body('name')
         .optional()
         .trim()
@@ -42,4 +43,25 @@ export const updateCompanyValidation = [
         .trim()
         .isURL()
         .withMessage('Please enter a valid URL'),
+];
+
+/**
+ * 🔍 Company ID Parameter Validation
+ */
+export const companyIdValidation = [
+    param('id').isMongoId().withMessage('Invalid MongoDB Company ID format'),
+];
+
+/**
+ * 📊 Public Search & Pagination Query Validation
+ */
+export const getAllCompaniesQueryValidation = [
+    query('page')
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage('Page number must be a positive integer'),
+    query('limit')
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage('Limit must be a positive integer'),
 ];
