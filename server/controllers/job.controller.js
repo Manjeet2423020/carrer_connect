@@ -28,7 +28,7 @@ export const updateJob = catchAsync(async (req, res) => {
 });
 
 export const deleteJob = catchAsync(async (req, res) => {
-    await JobService.deleteJob(req.params.id, req.user._id);
+    await JobService.deleteJob(req.params.id, req.user);
     res.status(200).json(new ApiResponse(200, {}, 'Job deleted successfully!'));
 });
 

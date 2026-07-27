@@ -11,29 +11,29 @@ import {
 import { verifyJWT } from '../middleware/verifyJWT.js';
 import { isRecruiter } from '../middleware/isRecruiter.js';
 import { validate } from '../validations/auth.validation.js';
-import { createJobValidation, updateJobValidation } from '../validations/job.validation.js';
+import {
+    createJobValidation,
+    updateJobValidation,
+    jobIdValidation,
+    getAllJobsQueryValidation,
+} from '../validations/job.validation.js';
 
 const router = express.Router();
 
-// 🔍 Search, Filter, Sort, Paginate Jobs (Public Route - Open for all users & guests)
-router.get('/', getAllJobs);
+// 🔍 Public Search & Details Routes (Open to all)
+router.get('/', validate(getAllJobsQueryValidation), getAllJobs);
+router.get('/:id', validate(jobIdValidation), getJobById);
 
-// 📋 Get Recruiter's posted jobs
-router.get('/recruiter', verifyJWT, isRecruiter, getRecruiterJobs);
+// 🔒 Protected Routes (Require Login)
+router.use(verifyJWT);
 
-// 🔍 Get Single Job Details by ID
-router.get('/:id', getJobById);
+// 🔖 Bookmark Job Endpoint (Jobseeker Only)
+router.post('/bookmark/:id', validate(jobIdValidation), toggleSaveJob);
 
-// 💼 Post a New Job (Recruiter Only + Validation)
-router.post('/', verifyJWT, isRecruiter, validate(createJobValidation), createJob);
-
-// ✏️ Edit Job Posting (Recruiter Only)
-router.put('/:id', verifyJWT, isRecruiter, validate(updateJobValidation), updateJob);
-
-// 🗑️ Delete Job Posting (Recruiter Only)
-router.delete('/:id', verifyJWT, isRecruiter, deleteJob);
-
-// 🔖 Bookmark / Save Job (JobSeeker Auth Required)
-router.post('/bookmark/:id', verifyJWT, toggleSaveJob);
+// 💼 Recruiter Only Routes
+router.get('/recruiter/all', isRecruiter, getRecruiterJobs);
+router.post('/', isRecruiter, validate(createJobValidation), createJob);
+router.put('/:id', isRecruiter, validate(updateJobValidation), updateJob);
+router.delete('/:id', validate(jobIdValidation), deleteJob);
 
 export default router;

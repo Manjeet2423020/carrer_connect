@@ -1,4 +1,4 @@
-import { body, param } from 'express-validator';
+import { body, param, query } from 'express-validator';
 
 /**
  * 💼 Job Creation Validation Rules
@@ -15,8 +15,8 @@ export const createJobValidation = [
         .notEmpty()
         .withMessage('Job description is required'),
     body('requirements')
-        .isArray({ min: 1 })
-        .withMessage('At least one requirement is required'),
+        .notEmpty()
+        .withMessage('Job requirements are required'),
     body('salary')
         .notEmpty()
         .withMessage('Salary is required')
@@ -52,9 +52,7 @@ export const createJobValidation = [
  * 💼 Job Update Validation Rules
  */
 export const updateJobValidation = [
-    param('id')
-        .isMongoId()
-        .withMessage('Invalid Job ID format'),
+    param('id').isMongoId().withMessage('Invalid Job ID format'),
     body('title')
         .optional()
         .trim()
@@ -68,4 +66,33 @@ export const updateJobValidation = [
         .optional()
         .isIn(['full-time', 'part-time', 'contract', 'internship', 'remote'])
         .withMessage('Invalid job type selection'),
+];
+
+/**
+ * 🔍 Job ID Parameter Validation
+ */
+export const jobIdValidation = [
+    param('id').isMongoId().withMessage('Invalid MongoDB Job ID format'),
+];
+
+/**
+ * 📊 Search, Filter & Pagination Query Validation
+ */
+export const getAllJobsQueryValidation = [
+    query('page')
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage('Page number must be a positive integer'),
+    query('limit')
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage('Limit must be a positive integer'),
+    query('minSalary')
+        .optional()
+        .isNumeric()
+        .withMessage('minSalary must be a number'),
+    query('maxSalary')
+        .optional()
+        .isNumeric()
+        .withMessage('maxSalary must be a number'),
 ];

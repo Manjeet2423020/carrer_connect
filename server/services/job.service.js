@@ -1,11 +1,12 @@
 import Job from '../models/Job.js';
 import Company from '../models/Company.js';
 import User from '../models/User.js';
+import Application from '../models/Application.js';
 import ApiError from '../utils/ApiError.js';
 import { generateSlug } from '../utils/generateSlug.js';
 
 /**
- * @description Job Management, Search Engine, & Bookmark Service Layer
+ * @description Job Management & Search Engine Business Logic Service Layer
  */
 class JobService {
     /**
@@ -14,7 +15,6 @@ class JobService {
     static async createJob(jobData, userId) {
         const { title, description, requirements, salary, experienceLevel, location, jobType, position, companyId } = jobData;
 
-        // Verify company exists and belongs to this recruiter
         const company = await Company.findById(companyId);
         if (!company) {
             throw new ApiError(404, 'Company not found');
@@ -44,7 +44,7 @@ class JobService {
     }
 
     /**
-     * 🔍 Production Search, Multi-Filter, Sorting & Pagination Engine
+     * 🔍 Multi-Filter, Full-Text Search, Sorting & Pagination Engine
      */
     static async getAllJobs(query) {
         const {
@@ -59,10 +59,8 @@ class JobService {
             limit = 10,
         } = query;
 
-        // Build Dynamic MongoDB Query Object
         const filterQuery = { isActive: true };
 
-        // Keyword Search (Search in Title or Description)
         if (keyword) {
             filterQuery.$or = [
                 { title: { $regex: keyword, $options: 'i' } },
@@ -70,46 +68,40 @@ class JobService {
             ];
         }
 
-        // Filter by Location
         if (location) {
             filterQuery.location = { $regex: location, $options: 'i' };
         }
 
-        // Filter by Job Type (e.g., full-time, remote)
         if (jobType) {
             filterQuery.jobType = jobType;
         }
 
-        // Filter by Experience Level
         if (experienceLevel) {
             filterQuery.experienceLevel = experienceLevel;
         }
 
-        // Filter by Salary Range
         if (minSalary || maxSalary) {
             filterQuery.salary = {};
             if (minSalary) filterQuery.salary.$gte = Number(minSalary);
             if (maxSalary) filterQuery.salary.$lte = Number(maxSalary);
         }
 
-        // Sorting Logic
-        let sortOptions = { createdAt: -1 }; // Default: Newest jobs first
+        let sortOptions = { createdAt: -1 };
         if (sort === 'oldest') sortOptions = { createdAt: 1 };
         if (sort === 'salary-high') sortOptions = { salary: -1 };
         if (sort === 'salary-low') sortOptions = { salary: 1 };
 
-        // Pagination Calculation
         const pageNum = Math.max(1, parseInt(page));
         const limitNum = Math.max(1, parseInt(limit));
         const skip = (pageNum - 1) * limitNum;
 
-        // Execute Mongo Query with Populate
         const jobs = await Job.find(filterQuery)
             .populate({ path: 'company', select: 'name logo location website slug' })
             .populate({ path: 'created_by', select: 'name email' })
             .sort(sortOptions)
             .skip(skip)
-            .limit(limitNum);
+            .limit(limitNum)
+            .lean();
 
         const totalJobs = await Job.countDocuments(filterQuery);
         const totalPages = Math.ceil(totalJobs / limitNum);
@@ -143,7 +135,7 @@ class JobService {
     }
 
     /**
-     * 📋 Get all jobs created by a Recruiter
+     * 📋 Get all jobs posted by a Recruiter
      */
     static async getRecruiterJobs(userId) {
         const jobs = await Job.find({ created_by: userId })
@@ -188,17 +180,23 @@ class JobService {
     }
 
     /**
-     * 🗑️ Delete Job Posting
+     * 🗑️ Delete Job Posting (Owner or Admin)
      */
-    static async deleteJob(jobId, userId) {
+    static async deleteJob(jobId, currentUser) {
         const job = await Job.findById(jobId);
         if (!job) {
             throw new ApiError(404, 'Job not found');
         }
 
-        if (job.created_by.toString() !== userId.toString()) {
-            throw new ApiError(403, 'Unauthorized! You can only delete jobs created by you.');
+        const isOwner = job.created_by.toString() === currentUser._id.toString();
+        const isAdmin = currentUser.role === 'admin';
+
+        if (!isOwner && !isAdmin) {
+            throw new ApiError(403, 'Unauthorized! You do not have permission to delete this job.');
         }
+
+        // Clean up applications for this job
+        await Application.deleteMany({ job: jobId });
 
         await Job.findByIdAndDelete(jobId);
         return true;
@@ -218,10 +216,8 @@ class JobService {
         const isSaved = user.savedJobs.includes(jobId);
 
         if (isSaved) {
-            // Unsave job
             user.savedJobs = user.savedJobs.filter((id) => id.toString() !== jobId.toString());
         } else {
-            // Save job
             user.savedJobs.push(jobId);
         }
 
