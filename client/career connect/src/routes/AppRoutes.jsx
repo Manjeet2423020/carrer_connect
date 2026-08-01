@@ -16,10 +16,16 @@ import CompanyProfile from "../pages/CompanyProfile/CompanyProfile";
 import SearchResults from "../pages/SearchResults/SearchResults";
 import NotFound from "../pages/NotFound/NotFound";
 
+// Auth Pages (Aapke lowercase filenames ke acccording)
+import Login from "../pages/Login/login";
+import Signup from "../pages/Signup/signup";
+
 const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
       <Route path="/find-job" element={<FindJob />} />
       <Route path="/messages" element={<Messages />} />
       <Route path="/hiring" element={<Hiring />} />

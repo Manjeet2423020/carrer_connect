@@ -11,7 +11,7 @@ import CompanySidebar from "../../components/CompanySidebar/CompanySidebar";
 import ContactCard from "../../components/ContactCard/ContactCard";
 
 // Import DETAILED_JOBS to extract job listings dynamically
-import { DETAILED_JOBS } from "../JobDetails/JobDetails";
+// import { DETAILED_JOBS } from "../JobDetails/JobDetails";
 
 const MOCK_COMPANIES = [
   {
@@ -219,11 +219,13 @@ const CompanyProfile = () => {
   }, [id]);
 
   // Extract jobs associated with current company dynamically
-  const companyJobs = useMemo(() => {
-    return DETAILED_JOBS.filter(
-      (job) => job.company.toLowerCase() === currentCompany.name.toLowerCase(),
-    );
-  }, [currentCompany]);
+  // const companyJobs = useMemo(() => {
+  //   return DETAILED_JOBS.filter(
+  //     (job) => job.company.toLowerCase() === currentCompany.name.toLowerCase(),
+  //   );
+  // }, [currentCompany]);
+
+  const companyJobs = [];
 
   // Dynamically switch content rendered in the main layout based on active tab
   const renderTabContent = () => {
@@ -283,9 +285,9 @@ const CompanyProfile = () => {
       {/* Navbar */}
       <Navbar
         searchVal=""
-        onSearchChange={() => {}}
+        onSearchChange={() => { }}
         salaryVal={500000}
-        onSalaryChange={() => {}}
+        onSalaryChange={() => { }}
       />
 
       {/* Main Grid */}

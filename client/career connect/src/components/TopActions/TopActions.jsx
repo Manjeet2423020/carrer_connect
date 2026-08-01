@@ -2,7 +2,7 @@ import { FiChevronDown, FiSliders } from "react-icons/fi";
 
 const TopActions = ({
   sortBy = "Last Updated",
-  onSortChange,
+
   onToggleSidebar,
 }) => {
   return (
